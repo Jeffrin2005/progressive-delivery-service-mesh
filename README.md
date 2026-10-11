@@ -15,6 +15,12 @@ This repository demonstrates a **Senior/Lead-level SRE & Platform Engineering so
 
 ---
 
+## 📐 System Architecture
+
+![CloudDrop Progressive Canary Delivery & Service Mesh Architecture](docs/images/architecture.png)
+
+---
+
 ## 🏗️ Repository Architecture
 
 ```text

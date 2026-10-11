@@ -4,6 +4,8 @@
 
 This project implements enterprise-grade **Progressive Canary Delivery** combined with **Zero-Trust Service Mesh Networking** on Kubernetes. It eliminates the blast radius of degraded software releases by replacing brittle standard `RollingUpdate` deployments with automated, telemetry-driven traffic gating and instantaneous rollbacks.
 
+![CloudDrop Progressive Canary Delivery & Service Mesh Architecture](images/architecture.png)
+
 ```
                     [ Incoming User Traffic (Internet) ]
                                     │
