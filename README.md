@@ -7,7 +7,7 @@
 ## 🌟 Overview
 In enterprise architectures (fintech, e-commerce, banking), standard Kubernetes `RollingUpdate` deployments are dangerous: a subtle bug can pass basic readiness checks and replace 100% of healthy pods, causing a full production outage.
 
-This repository demonstrates a **Senior/Lead-level SRE & Platform Engineering solution**:
+This repository demonstrates an **end-to-end Progressive Delivery & SRE solution**:
 * **Layer 7 Traffic Splitting:** Dynamic percentage-based routing (10% ➔ 30% ➔ 60% ➔ 100%) via **Istio Envoy proxies**.
 * **Automated SLO Analysis:** Real-time **Prometheus PromQL queries** evaluating HTTP 5xx error rates and latency before advancing traffic.
 * **Instant Automated Rollback:** Automated rollbacks in `<15 seconds` without human intervention if error thresholds breach SLO limits.
