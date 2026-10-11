@@ -72,4 +72,3 @@ kubectl patch rollout payment-service -n prod --type='json' -p='[{"op": "replace
 
 ## 📚 Documentation
 * [Detailed Architecture & Flow Diagram](docs/architecture.md)
-* [Senior SRE & DevOps Interview Defense Guide](docs/interview-cheat-sheet.md)
