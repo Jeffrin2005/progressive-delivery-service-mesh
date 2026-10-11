@@ -1,7 +1,7 @@
 apiVersion: networking.istio.io/v1beta1
 kind: Gateway
 metadata:
-  name: payment-gateway
+  name: clouddrop-gateway
   namespace: prod
 spec:
   selector:
@@ -17,23 +17,23 @@ spec:
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
-  name: payment-virtualservice
+  name: clouddrop-virtualservice
   namespace: prod
 spec:
   hosts:
   - "*"
   gateways:
-  - payment-gateway
+  - clouddrop-gateway
   http:
   - name: primary
     route:
     - destination:
-        host: payment-service-stable
+        host: clouddrop-service-stable
         port:
           number: 8080
       weight: 100
     - destination:
-        host: payment-service-canary
+        host: clouddrop-service-canary
         port:
           number: 8080
       weight: 0

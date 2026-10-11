@@ -31,17 +31,17 @@ helm repo update
 helm install prometheus prometheus-community/prometheus -n istio-system -f platform/prometheus/prometheus-values.yaml --wait
 
 # 5. Build and Load Application Containers
-Write-Host "`n[5/6] Building & Loading Payment Microservice Images..." -ForegroundColor Yellow
-docker build -t payment-service:v1.0.0 apps/payment-service
-docker build -t payment-service:v2.0.0 apps/payment-service
-kind load docker-image payment-service:v1.0.0 --name progressive-delivery
-kind load docker-image payment-service:v2.0.0 --name progressive-delivery
+Write-Host "`n[5/6] Building & Loading CloudDrop Microservice Images..." -ForegroundColor Yellow
+docker build -t clouddrop-service:v1.0.0 apps/fileshare
+docker build -t clouddrop-service:v2.0.0 apps/fileshare
+kind load docker-image clouddrop-service:v1.0.0 --name progressive-delivery
+kind load docker-image clouddrop-service:v2.0.0 --name progressive-delivery
 
 # 6. Deploy Workloads to Prod Namespace
-Write-Host "`n[6/6] Deploying Payment Workloads to prod namespace..." -ForegroundColor Yellow
+Write-Host "`n[6/6] Deploying CloudDrop Workloads to prod namespace..." -ForegroundColor Yellow
 kubectl create namespace prod
 kubectl label namespace prod istio-injection=enabled --overwrite
-kubectl apply -f apps/payment-service/manifests/
+kubectl apply -f apps/fileshare/manifests/
 
 Write-Host "`n==========================================================" -ForegroundColor Green
 Write-Host "  Platform Ready! Visit: http://localhost                 " -ForegroundColor Green

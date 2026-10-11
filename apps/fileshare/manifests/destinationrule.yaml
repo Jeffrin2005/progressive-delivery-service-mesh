@@ -1,10 +1,10 @@
 apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
-  name: payment-destinationrule
+  name: clouddrop-destinationrule
   namespace: prod
 spec:
-  host: payment-service-stable
+  host: clouddrop-service-stable
   trafficPolicy:
     tls:
       mode: ISTIO_MUTUAL # Zero-Trust automatic mTLS encryption between all pods
@@ -22,10 +22,10 @@ spec:
 apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
-  name: payment-destinationrule-canary
+  name: clouddrop-destinationrule-canary
   namespace: prod
 spec:
-  host: payment-service-canary
+  host: clouddrop-service-canary
   trafficPolicy:
     tls:
       mode: ISTIO_MUTUAL # Zero-Trust automatic mTLS encryption

@@ -1,20 +1,20 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Rollout
 metadata:
-  name: payment-service
+  name: clouddrop-service
   namespace: prod
   labels:
-    app: payment-service
+    app: clouddrop-service
 spec:
   replicas: 4
   revisionHistoryLimit: 3
   selector:
     matchLabels:
-      app: payment-service
+      app: clouddrop-service
   template:
     metadata:
       labels:
-        app: payment-service
+        app: clouddrop-service
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8080"
@@ -33,8 +33,8 @@ spec:
         - name: shared-storage-vol
           mountPath: /tmp/shared-files
       containers:
-      - name: payment-service
-        image: payment-service:v1.0.0
+      - name: clouddrop-service
+        image: clouddrop-service:v1.0.0
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: shared-storage-vol
@@ -72,17 +72,17 @@ spec:
           periodSeconds: 10
   strategy:
     canary:
-      stableService: payment-service-stable
-      canaryService: payment-service-canary
+      stableService: clouddrop-service-stable
+      canaryService: clouddrop-service-canary
       trafficRouting:
         istio:
           virtualService:
-            name: payment-virtualservice
+            name: clouddrop-virtualservice
             routes:
             - primary
       analysis:
         templates:
-        - templateName: payment-success-rate
+        - templateName: clouddrop-success-rate
         args:
         - name: service-version
           value: "v2.0.0-canary"

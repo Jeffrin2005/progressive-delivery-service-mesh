@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: AnalysisTemplate
 metadata:
-  name: payment-success-rate
+  name: clouddrop-success-rate
   namespace: prod
 spec:
   args:

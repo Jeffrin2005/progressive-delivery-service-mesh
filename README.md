@@ -21,14 +21,15 @@ This repository demonstrates a **Senior/Lead-level SRE & Platform Engineering so
 Progressive Delivery devops2/
 ├── .github/workflows/             # GitHub Actions CI/CD (Test, Lint & Canary Release)
 ├── apps/
-│   └── payment-service/           # E-Commerce Payment Microservice
-│       ├── src/                   # Node.js Express API with /metrics & health probes
+│   └── fileshare/                 # CloudDrop File Sharing Microservice
+│       ├── backend/               # Node.js Express API with /metrics & shared volume
+│       ├── frontend/              # React 18 Telemetry Dashboard & Upload UI
 │       ├── Dockerfile             # Multi-stage container build
 │       └── manifests/             # Kubernetes Rollout, VirtualService, Services & mTLS
 ├── infrastructure/                # Local & Cloud Cluster Configurations (Kind / EKS)
 ├── platform/                      # Core Mesh & Observability (Istio, Prometheus, Argo Rollouts)
 ├── scripts/                       # Chaos Engineering & Traffic Simulation Scripts
-└── docs/                          # Architecture Diagrams & Senior Interview Q&A
+└── docs/                          # Architecture Diagrams & Documentation
 ```
 
 ---
@@ -45,9 +46,9 @@ Progressive Delivery devops2/
 ```
 
 ### 2. Access the Application
-* **Checkout API:** `http://localhost/checkout`
+* **Web Portal:** Open `http://localhost` in your browser.
 * **Health Check:** `http://localhost/health`
-* **Web UI:** Open `http://localhost` in your browser.
+* **Metrics:** `http://localhost/metrics`
 
 ---
 
@@ -55,7 +56,7 @@ Progressive Delivery devops2/
 
 ### 1. Progressive Canary Rollout
 ```powershell
-kubectl patch rollout payment-service -n prod --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": "payment-service:v2.0.0"}]'
+kubectl patch rollout clouddrop-service -n prod --type=merge -p '{"spec":{"template":{"spec":{"containers":[{"name":"clouddrop-service","image":"clouddrop-service:v2.0.0","env":[{"name":"APP_VERSION","value":"v2.0.0-canary"},{"name":"RELEASE_COLOR","value":"#10b981"}]}]}}}}'
 ```
 
 ### 2. Generate Live Customer Traffic

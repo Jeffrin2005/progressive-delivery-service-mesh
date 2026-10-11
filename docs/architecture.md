@@ -13,7 +13,7 @@ This project implements enterprise-grade **Progressive Canary Delivery** combine
          ┌──────────────────────────┴──────────────────────────┐
          │                                                     │
          ▼ (Dynamic Weight: 80%)                               ▼ (Dynamic Weight: 20%)
-[ payment-service-stable (v1.0.0) ]                   [ payment-service-canary (v2.0.0) ]
+[ clouddrop-service-stable (v1.0.0) ]                   [ clouddrop-service-canary (v2.0.0) ]
   • Envoy Sidecar (mTLS)                                • Envoy Sidecar (mTLS)
   • 4 Pods Serving Prod Traffic                         • 1 Canary Pod under test
          │                                                     │
