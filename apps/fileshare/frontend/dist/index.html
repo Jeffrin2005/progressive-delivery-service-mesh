@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CloudDrop - Real File Sharing Platform</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    function App() {
+      const [meta, setMeta] = useState({ theme: { primary: '#3b82f6', versionBadge: 'v1.0.0 (STABLE)' }, pod: 'loading...' });
+      const [uploadedFile, setUploadedFile] = useState(null);
+      const [file, setFile] = useState(null);
+      const [loading, setLoading] = useState(false);
+      const [uploadHistory, setUploadHistory] = useState([]);
+      const [liveStats, setLiveStats] = useState({ v1: 8, v2: 2, total: 10 });
+
+      useEffect(() => {
+        fetch('/api/meta', { cache: 'no-store' })
+          .then(res => res.json())
+          .then(data => setMeta(data))
+          .catch(() => {});
+
+        const interval = setInterval(async () => {
+          try {
+            const res = await fetch('/api/ping', { cache: 'no-store' });
+            const data = await res.json();
+            setLiveStats(prev => {
+              const newTotal = prev.total + 1;
+              const newV2 = data.isCanary ? prev.v2 + 1 : prev.v2;
+              const newV1 = !data.isCanary ? prev.v1 + 1 : prev.v1;
+              return { v1: newV1, v2: newV2, total: newTotal };
+            });
+          } catch(e) {}
+        }, 3000);
+
+        return () => clearInterval(interval);
+      }, []);
+
+      const path = window.location.pathname;
+      if (path.startsWith('/file/')) {
+        const fileId = path.split('/file/')[1];
+        return <PreviewPage fileId={fileId} />;
+      }
+
+      const theme = meta.theme || { primary: '#3b82f6', versionBadge: 'v1.0.0 (STABLE)', colorName: 'Ocean Blue', trafficShare: '80% STABLE' };
+
+      const handleUpload = async () => {
+        if (!file) {
+          alert('Please choose a file from your computer first!');
+          return;
+        }
+        setLoading(true);
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+          const res = await fetch('/api/upload-file', { method: 'POST', body: formData, cache: 'no-store' });
+          const data = await res.json();
+          if (res.ok) {
+            setUploadedFile(data.file);
+            setUploadHistory(prev => [data.file, ...prev]);
+            setFile(null);
+            document.getElementById('file-picker').value = '';
+          } else {
+            alert('Upload failed: ' + data.error);
+          }
+        } catch(err) {
+          alert('Upload failed: ' + err.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const copyLink = (url) => {
+        navigator.clipboard.writeText(url);
+        alert('Shareable link copied to clipboard!');
+      };
+
+      const v1Percent = liveStats.total > 0 ? Math.round((liveStats.v1 / liveStats.total) * 100) : 80;
+      const v2Percent = liveStats.total > 0 ? Math.round((liveStats.v2 / liveStats.total) * 100) : 20;
+
+      return (
+        <div className="min-h-screen p-6 flex flex-col items-center justify-center" style={{ background: theme.bgGradient || 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' }}>
+          
+          <div className="w-full max-w-5xl mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-white/10 pb-5">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">☁️</span>
+                <h1 className="text-2xl font-black tracking-tight text-white">CloudDrop Enterprise File Platform</h1>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">Progressive Canary Delivery with Istio Service Mesh, Argo Rollouts & Prometheus</p>
+            </div>
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider text-white shadow-lg border border-white/10" style={{ backgroundColor: theme.primary }}>
+              <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
+              <span>Active Screen: {theme.versionBadge}</span>
+            </div>
+          </div>
+
+          <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <div className="lg:col-span-7 space-y-5">
+              
+              <div className="bg-slate-900/90 border border-white/10 rounded-2xl p-6 shadow-2xl backdrop-blur-xl">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-base font-bold text-white flex items-center gap-2">
+                    <span>📤</span>
+                    <span>Upload Shared File</span>
+                  </h2>
+                  <span className="text-[11px] font-mono text-slate-400">Persistent Shared PVC</span>
+                </div>
+
+                <div className="border-2 border-dashed rounded-xl p-6 text-center bg-slate-800/40 transition-all hover:bg-slate-800/60" style={{ borderColor: theme.primary }}>
+                  <div className="text-3xl mb-2">📁</div>
+                  <h3 className="text-sm font-semibold text-white">Select any real file from your computer</h3>
+                  <p className="text-xs text-slate-400 mt-1">Supports images, PDFs, docs, videos up to 30MB</p>
+
+                  <div className="mt-4 flex flex-col items-center gap-3">
+                    <input 
+                      id="file-picker" 
+                      type="file" 
+                      onChange={(e) => setFile(e.target.files[0])}
+                      className="text-xs text-slate-300 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-700 file:text-white hover:file:bg-slate-600 cursor-pointer"
+                    />
+
+                    <button 
+                      onClick={handleUpload}
+                      disabled={loading}
+                      className="w-full py-2.5 rounded-xl font-bold text-xs text-white uppercase tracking-wider transition-all shadow-lg hover:brightness-110 flex items-center justify-center gap-2"
+                      style={{ backgroundColor: theme.primary }}
+                    >
+                      {loading ? 'Uploading & Syncing Across Pods...' : 'Upload & Generate Instant Preview Link'}
+                    </button>
+                  </div>
+                </div>
+
+                {uploadedFile && (
+                  <div className="mt-4 p-4 rounded-xl bg-slate-800/90 border border-emerald-500/30 animate-fade-in">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-emerald-400">🎉 Shareable URL Generated:</span>
+                      <span className="font-mono text-slate-300">{uploadedFile.name} ({uploadedFile.size})</span>
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                      <input 
+                        type="text" 
+                        readOnly 
+                        value={`${window.location.origin}${uploadedFile.previewUrl}`}
+                        className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-200"
+                      />
+                      <button onClick={() => copyLink(`${window.location.origin}${uploadedFile.previewUrl}`)} className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs font-semibold text-white">Copy</button>
+                      <a 
+                        href={uploadedFile.previewUrl} 
+                        target="_blank"
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-xs font-semibold text-white flex items-center gap-1"
+                      >
+                        <span>Open Preview ↗</span>
+                      </a>
+                    </div>
+                    <div className="text-[11px] font-mono text-slate-400 mt-2">
+                      Synced on shared volume by pod: <b className="text-white">{uploadedFile.pod}</b>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {uploadHistory.length > 0 && (
+                <div className="bg-slate-900/90 border border-white/10 rounded-2xl p-5 shadow-2xl">
+                  <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Recently Shared Files</div>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {uploadHistory.map((f, i) => (
+                      <div key={i} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-800/50 border border-slate-700/50 text-xs">
+                        <div className="flex items-center gap-2 truncate">
+                          <span>📄</span>
+                          <span className="font-semibold text-white truncate">{f.name}</span>
+                          <span className="text-slate-400">({f.size})</span>
+                        </div>
+                        <a href={f.previewUrl} target="_blank" className="text-blue-400 hover:underline shrink-0 text-xs font-mono">View ↗</a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="lg:col-span-5 space-y-4">
+              
+              <div className="bg-slate-900/90 border border-white/10 rounded-2xl p-5 shadow-2xl backdrop-blur-xl">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>Istio Live Traffic Distribution</span>
+                  </div>
+                  <span className="text-[11px] font-mono text-slate-400">{liveStats.total} live hits</span>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs font-mono">
+                    <span className="text-blue-400 font-semibold">🔵 Stable v1.0.0</span>
+                    <span className="text-white font-bold">{v1Percent}%</span>
+                  </div>
+                  <div className="flex justify-between text-xs font-mono">
+                    <span className="text-emerald-400 font-semibold">🟢 Canary v2.0.0</span>
+                    <span className="text-white font-bold">{v2Percent}%</span>
+                  </div>
+                </div>
+
+                <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden flex mt-3">
+                  <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${v1Percent}%` }}></div>
+                  <div className="bg-emerald-500 h-full transition-all duration-500" style={{ width: `${v2Percent}%` }}></div>
+                </div>
+
+                <div className="mt-3 flex gap-2">
+                  <button onClick={() => window.location.reload()} className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-medium text-slate-200 border border-slate-700">🔄 Refresh Route</button>
+                  <a href="/metrics" target="_blank" className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-medium text-slate-200 border border-slate-700 text-center">📊 View /metrics</a>
+                </div>
+              </div>
+
+              <div className="bg-slate-900/90 border border-white/10 rounded-2xl p-5 shadow-2xl space-y-3 font-mono text-xs">
+                <div className="text-xs font-bold uppercase tracking-wider text-slate-400 font-sans border-b border-slate-800 pb-2">
+                  ⚙️ Enterprise Architecture Telemetry
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Serving Pod:</span>
+                  <span className="text-slate-200 font-bold truncate max-w-[180px]">{meta.pod || 'localhost'}</span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Service Mesh:</span>
+                  <span className="text-emerald-400 font-bold">Istio Envoy (mTLS)</span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Storage Volume:</span>
+                  <span className="text-blue-400 font-bold">HostPath Shared PVC</span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Progressive Strategy:</span>
+                  <span className="text-purple-400 font-bold">Canary (80% / 20%)</span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Prometheus SLO:</span>
+                  <span className="text-slate-200 font-bold">HTTP 5xx &lt; 5%</span>
+                </div>
+
+                <div className="flex justify-between border-t border-slate-800 pt-2">
+                  <span className="text-slate-400">Rollback Status:</span>
+                  <span className="text-emerald-400 font-bold">Auto-Rollback Active</span>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+      );
+    }
+
+    function PreviewPage({ fileId }) {
+      const [fileData, setFileData] = useState(null);
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState(null);
+
+      useEffect(() => {
+        fetch(`/api/file/${fileId}`)
+          .then(res => {
+            if (!res.ok) throw new Error('File not found or expired');
+            return res.json();
+          })
+          .then(data => {
+            setFileData(data.file);
+            setLoading(false);
+          })
+          .catch(err => {
+            setError(err.message);
+            setLoading(false);
+          });
+      }, [fileId]);
+
+      if (loading) {
+        return (
+          <div className="min-h-screen flex items-center justify-center text-slate-300">
+            <div className="text-sm font-mono animate-pulse">Loading shared file from cluster...</div>
+          </div>
+        );
+      }
+
+      if (error || !fileData) {
+        return (
+          <div className="min-h-screen flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl text-center max-w-sm">
+              <div className="text-4xl mb-2">⚠️</div>
+              <h2 className="text-xl font-bold text-white mb-1">File Not Found</h2>
+              <p className="text-xs text-slate-400 mb-4">{error || 'This link may have expired.'}</p>
+              <a href="/" className="px-4 py-2 bg-blue-600 rounded-lg text-xs font-semibold text-white">Back to Upload</a>
+            </div>
+          </div>
+        );
+      }
+
+      const theme = fileData.theme || { primary: '#3b82f6', versionBadge: 'v1.0.0 (STABLE)' };
+
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl relative">
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">📁</span>
+                <span className="font-bold text-sm tracking-wide text-white">CloudDrop Shared File</span>
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider text-white" style={{ backgroundColor: theme.primary }}>
+                {theme.versionBadge}
+              </span>
+            </div>
+
+            <div className="text-center my-4">
+              {fileData.isImage ? (
+                <div className="rounded-xl overflow-hidden border border-slate-700 bg-slate-950/60 p-2 mb-4 max-h-64 flex items-center justify-center">
+                  <img src={fileData.rawDownloadUrl} alt="Preview" className="max-h-56 max-w-full rounded-lg object-contain shadow" />
+                </div>
+              ) : (
+                <div className="w-24 h-24 mx-auto rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-4xl mb-4 shadow-inner">
+                  📄
+                </div>
+              )}
+
+              <h2 className="text-xl font-bold text-white break-words mt-2">{fileData.name}</h2>
+              <p className="text-xs text-slate-400 mt-1">Size: <span className="text-slate-200 font-semibold">{fileData.size}</span></p>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3">
+              <a 
+                href={fileData.rawDownloadUrl} 
+                download={fileData.name} 
+                className="w-full py-3.5 rounded-xl font-bold text-sm text-white text-center shadow-lg transition-all hover:brightness-110 flex items-center justify-center gap-2" 
+                style={{ backgroundColor: theme.primary }}
+              >
+                <span>📥</span>
+                <span>Download File ({fileData.size})</span>
+              </a>
+
+              <a href="/" className="text-center text-xs text-slate-400 hover:text-white transition-colors mt-2">
+                ← Upload another file
+              </a>
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-slate-800 flex justify-between text-[11px] font-mono text-slate-500">
+              <span>Delivered by: <b>{fileData.pod}</b></span>
+              <span>Mesh Route: <b style={{ color: theme.primary }}>{theme.trafficShare}</b></span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>

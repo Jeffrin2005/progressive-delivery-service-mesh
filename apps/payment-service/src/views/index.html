@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CloudDrop - Real File Sharing ({{VERSION_BADGE}})</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen text-slate-100 flex flex-col items-center justify-center p-4" style="background: {{BG_GRADIENT}};">
+  
+  <div class="w-full max-w-xl text-center mb-5">
+    <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-lg border border-white/10 mb-2" style="background-color: {{PRIMARY_COLOR}};">
+      <span class="w-2 h-2 rounded-full bg-white animate-ping"></span>
+      <span>{{VERSION_BADGE}} ({{COLOR_NAME}})</span>
+    </div>
+    <h1 class="text-3xl font-extrabold tracking-tight">CloudDrop Real File Sharing</h1>
+    <p class="text-slate-400 text-xs mt-1">Progressive Canary Delivery with Istio Mesh & Argo Rollouts</p>
+  </div>
+
+  <div class="w-full max-w-xl bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl">
+    
+    <!-- Real File Upload Zone -->
+    <div class="border-2 border-dashed rounded-xl p-6 text-center transition-all bg-slate-800/40" style="border-color: {{PRIMARY_COLOR}};">
+      <div class="text-3xl mb-2">📤</div>
+      <h3 class="text-base font-semibold">Choose any file from your computer</h3>
+      <p class="text-xs text-slate-400 mt-1">Upload images, PDFs, docs, or text files</p>
+      
+      <div class="mt-4 flex flex-col items-center gap-3">
+        <input type="file" id="real-file-input" class="text-xs text-slate-300 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-700 file:text-white hover:file:bg-slate-600 cursor-pointer" />
+        
+        <button onclick="uploadRealFile()" class="w-full py-2.5 rounded-lg font-semibold text-sm text-white transition-all shadow-md hover:brightness-110 flex items-center justify-center gap-2" style="background-color: {{PRIMARY_COLOR}};">
+          <span>Upload & Generate Shareable Link</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Download Link Notification -->
+    <div id="link-box" class="hidden mt-4 p-4 rounded-xl bg-slate-800 border border-white/10">
+      <div class="flex items-center justify-between text-xs">
+        <span class="font-bold text-emerald-400">🎉 Shareable Preview Link Created:</span>
+        <span id="file-size-tag" class="font-mono text-slate-400"></span>
+      </div>
+      <div class="flex gap-2 mt-2">
+        <input type="text" id="share-url" readonly class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-200" />
+        <button onclick="copyLink()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs font-semibold text-white">Copy</button>
+        <a id="preview-page-btn" href="#" target="_blank" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-xs font-semibold text-white flex items-center gap-1">
+          <span>Open Preview</span>
+          <span>↗</span>
+        </a>
+      </div>
+      <div id="upload-pod-info" class="text-[11px] font-mono text-slate-400 mt-2"></div>
+    </div>
+
+    <div id="status-error" class="hidden mt-4 p-3 rounded-lg bg-red-500/20 border border-red-500 text-red-300 text-xs text-center font-mono"></div>
+
+    <!-- Live Traffic Testing Console -->
+    <div class="mt-6 pt-4 border-t border-slate-800">
+      <div class="flex items-center justify-between mb-3">
+        <div class="text-xs font-bold uppercase tracking-wider text-slate-400">🧪 Istio Live Traffic Testing</div>
+        <div class="flex gap-2">
+          <button onclick="window.location.reload()" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 rounded-md text-xs font-medium text-slate-300 border border-slate-700">🔄 Refresh Route</button>
+          <button onclick="testTraffic(10)" class="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded-md text-xs font-medium text-white shadow">🚀 Test 10 Requests</button>
+        </div>
+      </div>
+
+      <div id="traffic-results" class="hidden p-3 rounded-lg bg-slate-950 border border-slate-800 font-mono text-xs">
+        <div class="flex justify-between text-slate-300 mb-2">
+          <span>Results: <b>10 Requests</b></span>
+          <span>🔵 Stable: <b id="stat-v1" class="text-blue-400">0</b></span>
+          <span>🟢 Canary: <b id="stat-v2" class="text-emerald-400">0</b></span>
+        </div>
+        <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden flex">
+          <div id="bar-v1" class="bg-blue-500 h-full transition-all" style="width: 80%"></div>
+          <div id="bar-v2" class="bg-emerald-500 h-full transition-all" style="width: 20%"></div>
+        </div>
+        <div id="traffic-log" class="mt-3 max-h-24 overflow-y-auto text-[11px] text-slate-400 space-y-1"></div>
+      </div>
+    </div>
+
+    <!-- Telemetry Footer -->
+    <div class="mt-4 pt-3 border-t border-slate-800 flex justify-between text-xs font-mono text-slate-400">
+      <div>Pod: <span class="text-slate-200 font-bold">{{HOSTNAME}}</span></div>
+      <div>Expected Weight: <span class="text-white font-bold" style="color: {{PRIMARY_COLOR}};">{{TRAFFIC_SHARE}}</span></div>
+      <div>Status: <span class="text-emerald-400 font-bold">Online</span></div>
+    </div>
+  </div>
+
+  <script>
+    async function uploadRealFile() {
+      const fileInput = document.getElementById('real-file-input');
+      const linkBox = document.getElementById('link-box');
+      const errBox = document.getElementById('status-error');
+
+      if (!fileInput.files || fileInput.files.length === 0) {
+        alert('Please choose a file from your computer first!');
+        return;
+      }
+
+      const file = fileInput.files[0];
+      const formData = new FormData();
+      formData.append('file', file);
+
+      linkBox.classList.add('hidden');
+      errBox.classList.add('hidden');
+
+      try {
+        const res = await fetch('/api/upload-file', {
+          method: 'POST',
+          body: formData,
+          cache: 'no-store'
+        });
+        const data = await res.json();
+        if (res.ok) {
+          const previewFullUrl = window.location.origin + data.file.previewUrl;
+          document.getElementById('share-url').value = previewFullUrl;
+          document.getElementById('preview-page-btn').href = previewFullUrl;
+          document.getElementById('file-size-tag').innerText = data.file.name + ' (' + data.file.size + ')';
+          document.getElementById('upload-pod-info').innerText = 'Processed by ' + data.file.version + ' on pod ' + data.file.pod;
+          linkBox.classList.remove('hidden');
+        } else {
+          errBox.innerText = 'Upload Failed: ' + data.error + ' (' + data.message + ')';
+          errBox.classList.remove('hidden');
+        }
+      } catch (err) {
+        errBox.innerText = 'Network error: ' + err.message;
+        errBox.classList.remove('hidden');
+      }
+    }
+
+    function copyLink() {
+      const copyText = document.getElementById('share-url');
+      copyText.select();
+      navigator.clipboard.writeText(copyText.value);
+      alert('Shareable link copied to clipboard!');
+    }
+
+    async function testTraffic(count) {
+      const resultsDiv = document.getElementById('traffic-results');
+      const logDiv = document.getElementById('traffic-log');
+      resultsDiv.classList.remove('hidden');
+      logDiv.innerHTML = '';
+
+      let v1Count = 0;
+      let v2Count = 0;
+
+      for (let i = 1; i <= count; i++) {
+        try {
+          const res = await fetch('/api/ping', { cache: 'no-store' });
+          const data = await res.json();
+          if (data.isCanary) {
+            v2Count++;
+            logDiv.innerHTML += '<div class="text-emerald-400">[' + i + '/' + count + '] 🟢 Routed to CANARY (' + data.version + ' on ' + data.pod + ')</div>';
+          } else {
+            v1Count++;
+            logDiv.innerHTML += '<div class="text-blue-400">[' + i + '/' + count + '] 🔵 Routed to STABLE (' + data.version + ' on ' + data.pod + ')</div>';
+          }
+        } catch (e) {
+          logDiv.innerHTML += '<div class="text-red-400">[' + i + '/' + count + '] ❌ Failed</div>';
+        }
+      }
+
+      document.getElementById('stat-v1').innerText = v1Count + ' (' + Math.round((v1Count/count)*100) + '%)';
+      document.getElementById('stat-v2').innerText = v2Count + ' (' + Math.round((v2Count/count)*100) + '%)';
+      document.getElementById('bar-v1').style.width = ((v1Count/count)*100) + '%';
+      document.getElementById('bar-v2').style.width = ((v2Count/count)*100) + '%';
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+  </script>
+</body>
+</html>

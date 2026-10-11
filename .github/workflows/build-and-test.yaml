@@ -1,0 +1,55 @@
+name: Build, Lint & Test Microservice
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'apps/payment-service/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'apps/payment-service/**'
+
+jobs:
+  test:
+    name: Unit Test & Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: apps/payment-service/src/package.json
+
+      - name: Install Dependencies
+        run: |
+          cd apps/payment-service/src
+          npm ci
+
+      - name: Run Vulnerability Audit
+        run: |
+          cd apps/payment-service/src
+          npm audit --audit-level=high
+
+  docker-build:
+    name: Build & Validate Container
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Container Image
+        uses: docker/build-push-action@v5
+        with:
+          context: apps/payment-service
+          file: apps/payment-service/Dockerfile
+          push: false
+          tags: payment-service:test

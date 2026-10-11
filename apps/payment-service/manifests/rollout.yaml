@@ -1,0 +1,93 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: payment-service
+  namespace: prod
+  labels:
+    app: payment-service
+spec:
+  replicas: 4
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      volumes:
+      - name: shared-storage-vol
+        hostPath:
+          path: /tmp/clouddrop-files
+          type: DirectoryOrCreate
+      initContainers:
+      - name: init-storage-permissions
+        image: busybox:latest
+        command: ["sh", "-c", "mkdir -p /tmp/shared-files && chown -R 1000:1000 /tmp/shared-files && chmod -R 777 /tmp/shared-files"]
+        volumeMounts:
+        - name: shared-storage-vol
+          mountPath: /tmp/shared-files
+      containers:
+      - name: payment-service
+        image: payment-service:v1.0.0
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: shared-storage-vol
+          mountPath: /tmp/shared-files
+        ports:
+        - name: http
+          containerPort: 8080
+        env:
+        - name: APP_VERSION
+          value: "v1.0.0"
+        - name: RELEASE_COLOR
+          value: "#3b82f6"
+        - name: INITIAL_ERROR_PERCENTAGE
+          value: "0"
+        - name: STORAGE_PATH
+          value: "/tmp/shared-files"
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+  strategy:
+    canary:
+      stableService: payment-service-stable
+      canaryService: payment-service-canary
+      trafficRouting:
+        istio:
+          virtualService:
+            name: payment-virtualservice
+            routes:
+            - primary
+      analysis:
+        templates:
+        - templateName: payment-success-rate
+        args:
+        - name: service-version
+          value: "v2.0.0-canary"
+      steps:
+      - setWeight: 20
+      - pause: {}
+      - setWeight: 50
+      - pause: {}

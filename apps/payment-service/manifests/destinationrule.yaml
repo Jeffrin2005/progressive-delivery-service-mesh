@@ -1,0 +1,31 @@
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: payment-destinationrule
+  namespace: prod
+spec:
+  host: payment-service-stable
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL # Zero-Trust automatic mTLS encryption between all pods
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 50
+        maxRequestsPerConnection: 10
+    outlierDetection:
+      consecutive5xxErrors: 3
+      interval: 10s
+      baseEjectionTime: 30s
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: payment-destinationrule-canary
+  namespace: prod
+spec:
+  host: payment-service-canary
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL # Zero-Trust automatic mTLS encryption

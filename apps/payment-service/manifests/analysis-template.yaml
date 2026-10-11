@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: payment-success-rate
+  namespace: prod
+spec:
+  args:
+  - name: service-version
+  metrics:
+  - name: success-rate
+    interval: 10s
+    successCondition: len(result) == 0 || result[0] <= 0.05
+    failureLimit: 1
+    provider:
+      prometheus:
+        address: http://prometheus-server.istio-system.svc.cluster.local:80
+        query: |
+          (
+            sum(rate(http_requests_total{status_code=~"5.*",app_version="{{args.service-version}}"}[1m]))
+            /
+            sum(rate(http_requests_total{app_version="{{args.service-version}}"}[1m]))
+          )

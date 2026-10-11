@@ -1,0 +1,18 @@
+# Production Prometheus Helm values optimized for progressive delivery metrics
+server:
+  persistentVolume:
+    enabled: false
+  retention: "6h"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+alertmanager:
+  enabled: false
+
+pushgateway:
+  enabled: false
