@@ -1,48 +1,135 @@
-<#
-.SYNOPSIS
-    One-click setup script for Progressive Delivery platform with Istio & Argo Rollouts.
-#>
+$ErrorActionPreference = "Stop"
 
-Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "  Starting Progressive Delivery & Service Mesh Bootstrap  " -ForegroundColor Cyan
-Write-Host "==========================================================" -ForegroundColor Cyan
+function Check-Exit {
+    if ($LASTEXITCODE -ne 0) {
+        throw "Command failed with exit code $LASTEXITCODE"
+    }
+}
 
-# 1. Cluster Provisioning
-Write-Host "`n[1/6] Creating Kind Kubernetes Cluster..." -ForegroundColor Yellow
-kind create cluster --config infrastructure/kind-config.yaml
+Write-Host "Starting CloudDrop setup..." -ForegroundColor Cyan
 
-# 2. Istio Service Mesh
-Write-Host "`n[2/6] Installing Istio Service Mesh..." -ForegroundColor Yellow
+# STEP 1 - Create Kind cluster if needed
+
+$clusters = @(kind get clusters)
+Check-Exit
+
+if ($clusters -notcontains "progressive-delivery") {
+    kind create cluster `
+        --name progressive-delivery `
+        --config infrastructure/kind-config.yaml
+    Check-Exit
+}
+
+kubectl config use-context kind-progressive-delivery
+Check-Exit
+
+# STEP 2 - Install Istio
+
 helm repo add istio https://istio-release.storage.googleapis.com/charts
+Check-Exit
+
 helm repo update
-helm install istio-base istio/base -n istio-system --create-namespace
-helm install istiod istio/istiod -n istio-system --wait
-helm install istio-ingress istio/gateway -n istio-system -f platform/istio/ingress-values.yaml --wait
+Check-Exit
 
-# 3. Argo Rollouts Controller
-Write-Host "`n[3/6] Installing Argo Rollouts Controller..." -ForegroundColor Yellow
-kubectl create namespace argo-rollouts
-kubectl apply --server-side=true -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+helm upgrade --install istio-base istio/base `
+    -n istio-system `
+    --create-namespace `
+    --wait
+Check-Exit
 
-# 4. Prometheus Observability
-Write-Host "`n[4/6] Installing Prometheus Monitoring Stack..." -ForegroundColor Yellow
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm upgrade --install istiod istio/istiod `
+    -n istio-system `
+    --wait
+Check-Exit
+
+helm upgrade --install istio-ingress istio/gateway `
+    -n istio-system `
+    -f platform/istio/ingress-values.yaml `
+    --wait
+Check-Exit
+
+# STEP 3 - Install Argo Rollouts
+
+kubectl create namespace argo-rollouts `
+    --dry-run=client -o yaml | kubectl apply -f -
+Check-Exit
+
+kubectl apply --server-side=true `
+    -n argo-rollouts `
+    -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+Check-Exit
+
+kubectl wait `
+    --for=condition=established `
+    crd/rollouts.argoproj.io `
+    --timeout=120s
+Check-Exit
+
+# STEP 4 - Install Prometheus
+
+helm repo add prometheus-community `
+    https://prometheus-community.github.io/helm-charts
+Check-Exit
+
 helm repo update
-helm install prometheus prometheus-community/prometheus -n istio-system -f platform/prometheus/prometheus-values.yaml --wait
+Check-Exit
 
-# 5. Build and Load Application Containers
-Write-Host "`n[5/6] Building & Loading CloudDrop Microservice Images..." -ForegroundColor Yellow
-docker build -t clouddrop-service:v1.0.0 apps/fileshare
-docker build -t clouddrop-service:v2.0.0 apps/fileshare
-kind load docker-image clouddrop-service:v1.0.0 --name progressive-delivery
-kind load docker-image clouddrop-service:v2.0.0 --name progressive-delivery
+helm upgrade --install prometheus prometheus-community/prometheus `
+    -n istio-system `
+    -f platform/prometheus/prometheus-values.yaml `
+    --wait
+Check-Exit
 
-# 6. Deploy Workloads to Prod Namespace
-Write-Host "`n[6/6] Deploying CloudDrop Workloads to prod namespace..." -ForegroundColor Yellow
-kubectl create namespace prod
-kubectl label namespace prod istio-injection=enabled --overwrite
+# STEP 5 - Create application namespace
+
+kubectl create namespace prod `
+    --dry-run=client -o yaml | kubectl apply -f -
+Check-Exit
+
+kubectl label namespace prod `
+    istio-injection=enabled `
+    --overwrite
+Check-Exit
+
+# STEP 6 - Build Docker images
+
+docker build `
+    -t clouddrop-service:v1.0.0 `
+    apps/fileshare
+Check-Exit
+
+docker build `
+    -t clouddrop-service:v2.0.0 `
+    apps/fileshare
+Check-Exit
+
+# STEP 7 - Load images into Kind
+
+kind load docker-image `
+    clouddrop-service:v1.0.0 `
+    --name progressive-delivery
+Check-Exit
+
+kind load docker-image `
+    clouddrop-service:v2.0.0 `
+    --name progressive-delivery
+Check-Exit
+
+# STEP 8 - Deploy storage
+
+kubectl apply -f apps/fileshare/manifests/pvc.yaml
+Check-Exit
+
+# STEP 9 - Deploy application
+
 kubectl apply -f apps/fileshare/manifests/
+Check-Exit
 
-Write-Host "`n==========================================================" -ForegroundColor Green
-Write-Host "  Platform Ready! Visit: http://localhost                 " -ForegroundColor Green
-Write-Host "==========================================================" -ForegroundColor Green
+# STEP 10 - Display status
+
+Write-Host ""
+Write-Host "CloudDrop manifests applied!" -ForegroundColor Green
+
+kubectl get pods -n prod
+kubectl get pvc -n prod
+kubectl get rollout -n prod

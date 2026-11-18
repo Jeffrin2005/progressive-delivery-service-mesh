@@ -1,43 +1,71 @@
+
 const express = require('express');
-const cors = require('cors');
 const path = require('path');
 const config = require('./config');
 const routes = require('./routes/apiRoutes');
-const { httpRequestCounter } = require('./metrics/prometheus');
+
+const {
+  httpRequestCounter,
+  httpRequestDuration
+} = require('./metrics/prometheus');
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+app.disable('x-powered-by');
+app.use(express.json({ limit: '16kb' }));
 
-// Disable keep-alive for immediate round-robin on Istio Canary testing
 app.use((req, res, next) => {
-  res.setHeader('Connection', 'close');
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-  res.on('finish', () => {
-    httpRequestCounter.inc({
+  const start = process.hrtime.bigint();
+
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Cache-Control', 'no-store');
+
+  res.once('finish', () => {
+    if (req.path === '/metrics' || req.path === '/health') {
+      return;
+    }
+
+    const route = req.route ? req.route.path : req.path;
+
+    const labels = {
       method: req.method,
-      route: req.route ? req.route.path : req.path,
-      status_code: res.statusCode,
-      app_version: config.APP_VERSION,
+      route,
+      app_version: config.APP_VERSION
+    };
+
+    httpRequestCounter.inc({
+      ...labels,
+      status_code: String(res.statusCode)
     });
+
+    const seconds = Number(
+      process.hrtime.bigint() - start
+    ) / 1e9;
+
+    httpRequestDuration.observe(labels, seconds);
   });
+
   next();
 });
 
-// Serve frontend static build if present
-const frontendBuildPath = path.join(__dirname, '../../frontend/dist');
-app.use(express.static(frontendBuildPath));
+const frontendBuildPath = path.join(
+  __dirname,
+  '../../frontend/dist'
+);
 
-// Mount API routes
+app.use(express.static(frontendBuildPath));
 app.use('/', routes);
 
-// SPA fallback to frontend index.html
 app.get('*', (req, res) => {
-  const indexFile = path.join(frontendBuildPath, 'index.html');
-  res.sendFile(indexFile);
+  res.sendFile(path.join(frontendBuildPath, 'index.html'));
 });
 
-app.listen(config.PORT, () => {
-  console.log(`CloudDrop Backend [${config.APP_VERSION}] listening on port ${config.PORT}`);
-});
+if (require.main === module) {
+  app.listen(config.PORT, () => {
+    console.log(
+      `CloudDrop ${config.APP_VERSION} listening on ${config.PORT}`
+    );
+  });
+}
+
+module.exports = app;

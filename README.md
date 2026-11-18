@@ -52,18 +52,60 @@ Progressive Delivery devops2/
 ```
 
 ### 2. Access the Application
-* **Web Portal:** Open `http://localhost` in your browser.
-* **Health Check:** `http://localhost/health`
-* **Metrics:** `http://localhost/metrics`
+* **Web Portal:** Open `http://localhost:8082/` in your browser.
+* **Health Check:** `http://localhost:8082/health`
+* **Metrics:** `http://localhost:8082/metrics`
 
 ---
 
 ## 🧪 Demonstrations
 
+### Verified Local Promotion
+
+The local demonstration completed blue v1 → 20% purple v2 → 50% purple v2 →
+100% purple v2. Both Prometheus analysis stages passed, and the final four
+application pods were `2/2 Running`. A separate missing-data analysis failed as
+expected, confirming that empty metrics do not approve a release.
+
+| Blue v1 before promotion | Purple v2 after promotion |
+| --- | --- |
+| ![Blue v1 serving all traffic](docs/evidence/clouddrop-v1.jpg) | ![Purple v2 serving all traffic](docs/evidence/clouddrop-v2.jpg) |
+
+[Recorded rollout measurements](docs/evidence/rollout-verification.json)
+
+Rollback during canary analysis returns traffic to the last healthy release.
+After v2 is promoted, v2 is the stable release; a later failed canary rolls back
+to v2. Step-based analysis does not keep triggering rollbacks after promotion.
+
 ### 1. Progressive Canary Rollout
 ```powershell
-kubectl patch rollout clouddrop-service -n prod --type=merge -p '{"spec":{"template":{"spec":{"containers":[{"name":"clouddrop-service","image":"clouddrop-service:v2.0.0","env":[{"name":"APP_VERSION","value":"v2.0.0-canary"},{"name":"RELEASE_COLOR","value":"#10b981"}]}]}}}}'
+docker build -t clouddrop-service:v2.0.0-live-demo apps/fileshare
+kind load docker-image clouddrop-service:v2.0.0-live-demo --name progressive-delivery
+.\scripts\promote-v2.ps1
 ```
+
+The script generates checkout traffic while Argo automatically evaluates v2 at
+20% and 50%, then promotes it to 100%. It stops traffic when the rollout completes
+or fails. The page changes from blue v1 to purple v2 and refreshes release metadata
+every two seconds; the live-hit counter samples `/api/ping` every 500 ms.
+The displayed percentages summarize requests since the page was loaded; they
+are not the configured Istio routing weights. Refresh the page to reset those
+samples when demonstrating a new stage. After promotion, v2 becomes Argo's stable
+ReplicaSet and serves all traffic.
+
+For subsequent builds, use a fresh image tag and pass it with `-Image`; changing
+only the contents of an already-running image tag does not trigger a rollout.
+
+Prometheus must scrape every 10 seconds for the one-minute analysis windows:
+
+```powershell
+helm upgrade prometheus prometheus-community/prometheus --version 29.47.2 -n istio-system --reuse-values --set server.global.scrape_interval=10s --set server.global.scrape_timeout=5s --set server.global.evaluation_interval=10s --wait
+```
+
+These settings are also saved in `platform/prometheus/prometheus-values.yaml` for
+future setup runs. The analysis requires at least ten observed checkout requests,
+at most 5% HTTP 5xx errors, and p95 latency at most 750 ms. Missing traffic or empty
+query results do not pass. Keep traffic running throughout both analysis stages.
 
 ### 2. Generate Live Customer Traffic
 ```powershell

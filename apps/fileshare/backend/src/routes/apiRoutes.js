@@ -10,7 +10,7 @@ const router = express.Router();
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, config.STORAGE_DIR),
   filename: (req, file, cb) => {
-    const fileId = crypto.randomBytes(4).toString('hex');
+    const fileId = crypto.randomBytes(16).toString('hex');
     const safeName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
     cb(null, `${fileId}___${safeName}`);
   }
@@ -27,8 +27,20 @@ router.get('/health', (req, res) => {
   res.status(200).json({ status: 'HEALTHY', version: config.APP_VERSION });
 });
 
-router.all('/checkout', (req, res) => {
-  res.json({ status: 'SUCCESS', version: config.APP_VERSION });
+router.get('/checkout', (req, res) => {
+  if (fileController.shouldFailRequest()) {
+    return res.status(500).json({
+      status: 'FAILED',
+      error: 'SIMULATED_CANARY_FAILURE',
+      version: config.APP_VERSION
+    });
+  }
+
+  return res.status(200).json({
+    status: 'SUCCESS',
+    version: config.APP_VERSION,
+    pod: process.env.HOSTNAME || 'local'
+  });
 });
 
 router.get('/api/ping', (req, res) => {

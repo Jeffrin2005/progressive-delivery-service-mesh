@@ -1,27 +1,49 @@
-# Simulates real customer checkout traffic against Istio Ingress using curl.exe
-param (
-    [int]$Requests = 50,
-    [int]$DelayMs = 150
-)
 
-Write-Host "Sending $Requests checkout requests to http://localhost/checkout..." -ForegroundColor Cyan
+param(
+    [ValidateRange(1, 100000)]
+    [int]$Requests = 4000,
+
+    [ValidateRange(0, 5000)]
+    [int]$DelayMs = 75,
+
+    [string]$BaseUrl = "http://localhost:8082"
+)
 
 $success = 0
 $failed = 0
+$networkErrors = 0
+
+Write-Host "Generating CloudDrop checkout traffic..." -ForegroundColor Cyan
+Write-Host "Requests: $Requests | Delay: $DelayMs ms"
 
 for ($i = 1; $i -le $Requests; $i++) {
-    $out = curl.exe -s -w "%{http_code}" http://localhost/checkout
-    $code = $out.Substring($out.Length - 3)
-    $body = $out.Substring(0, $out.Length - 3)
+    $code = & curl.exe `
+        --silent `
+        --output NUL `
+        --write-out "%{http_code}" `
+        --max-time 5 `
+        "$BaseUrl/checkout"
 
-    if ($code -eq "200") {
-        $success++
-        Write-Host "[$i/$Requests] HTTP $code SUCCESS | Body: $body" -ForegroundColor Green
-    } else {
-        $failed++
-        Write-Host "[$i/$Requests] HTTP $code FAILED  | Body: $body" -ForegroundColor Red
+    if ($LASTEXITCODE -ne 0) {
+        $networkErrors++
     }
-    Start-Sleep -Milliseconds $DelayMs
+    elseif ($code -eq "200") {
+        $success++
+    }
+    else {
+        $failed++
+    }
+
+    if ($i -eq 1 -or $i % 50 -eq 0 -or $i -eq $Requests) {
+        Write-Host "[$i/$Requests] OK=$success FAILED=$failed NETWORK=$networkErrors"
+    }
+
+    if ($DelayMs -gt 0) {
+        Start-Sleep -Milliseconds $DelayMs
+    }
 }
 
-Write-Host "`nSummary: $success Succeeded (200 OK), $failed Failed" -ForegroundColor Yellow
+Write-Host "`nTraffic test complete." -ForegroundColor Green
+Write-Host "HTTP 200: $success"
+Write-Host "HTTP failures: $failed"
+Write-Host "Network failures: $networkErrors"

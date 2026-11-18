@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>CloudDrop - Real File Sharing Platform</title>
@@ -9,6 +10,7 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
+
 <body class="bg-slate-950 text-slate-100 min-h-screen">
   <div id="root"></div>
 
@@ -21,29 +23,58 @@
       const [file, setFile] = useState(null);
       const [loading, setLoading] = useState(false);
       const [uploadHistory, setUploadHistory] = useState([]);
-      const [liveStats, setLiveStats] = useState({ v1: 8, v2: 2, total: 10 });
+      const [liveStats, setLiveStats] = useState({
+        v1: 0,
+        v2: 0,
+        total: 0
+      });
 
       useEffect(() => {
-        fetch('/api/meta', { cache: 'no-store' })
-          .then(res => res.json())
-          .then(data => setMeta(data))
-          .catch(() => {});
+        let stopped = false;
+        let pingInFlight = false;
+        const refreshMeta = async () => {
+          try {
+            const res = await fetch('/api/meta', { cache: 'no-store' });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (!stopped) setMeta(data);
+          } catch (e) { }
+        };
+        refreshMeta();
+        const metaInterval = setInterval(refreshMeta, 2000);
 
         const interval = setInterval(async () => {
+          if (pingInFlight) return;
+          pingInFlight = true;
           try {
             const res = await fetch('/api/ping', { cache: 'no-store' });
+            if (!res.ok) return;
             const data = await res.json();
+            if (stopped) return;
             setLiveStats(prev => {
               const newTotal = prev.total + 1;
               const newV2 = data.isCanary ? prev.v2 + 1 : prev.v2;
               const newV1 = !data.isCanary ? prev.v1 + 1 : prev.v1;
               return { v1: newV1, v2: newV2, total: newTotal };
             });
-          } catch(e) {}
-        }, 3000);
+          } catch (e) { }
+          finally { pingInFlight = false; }
+        }, 500);
 
-        return () => clearInterval(interval);
+        return () => {
+          stopped = true;
+          clearInterval(interval);
+          clearInterval(metaInterval);
+        };
       }, []);
+
+      useEffect(() => {
+        if (!meta.version) return;
+        document.documentElement.style.setProperty('--release-accent', meta.theme.primary);
+        document.documentElement.style.setProperty('--release-background', meta.isCanary ? '#f5f3ff' : '#eff6ff');
+        document.getElementById('release-theme-badge').textContent =
+          (meta.isCanary ? '🟣 v2 release - ' : '🔵 v1 release - ') + meta.version;
+      }, [meta]);
 
       const path = window.location.pathname;
       if (path.startsWith('/file/')) {
@@ -52,7 +83,7 @@
       }
 
       const theme = meta.theme || { primary: '#3b82f6', versionBadge: 'v1.0.0 (STABLE)', colorName: 'Ocean Blue', trafficShare: '80% STABLE' };
-
+      const isCanaryTheme = String(theme.versionBadge).includes('v2');
       const handleUpload = async () => {
         if (!file) {
           alert('Please choose a file from your computer first!');
@@ -73,7 +104,7 @@
           } else {
             alert('Upload failed: ' + data.error);
           }
-        } catch(err) {
+        } catch (err) {
           alert('Upload failed: ' + err.message);
         } finally {
           setLoading(false);
@@ -85,12 +116,22 @@
         alert('Shareable link copied to clipboard!');
       };
 
-      const v1Percent = liveStats.total > 0 ? Math.round((liveStats.v1 / liveStats.total) * 100) : 80;
-      const v2Percent = liveStats.total > 0 ? Math.round((liveStats.v2 / liveStats.total) * 100) : 20;
+      const v1Percent = liveStats.total > 0
+        ? Math.round((liveStats.v1 / liveStats.total) * 100)
+        : 0;
 
+      const v2Percent = liveStats.total > 0
+        ? Math.round((liveStats.v2 / liveStats.total) * 100)
+        : 0;
       return (
-        <div className="min-h-screen p-6 flex flex-col items-center justify-center" style={{ background: theme.bgGradient || 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' }}>
-          
+        <div
+          className="min-h-screen p-6 flex flex-col items-center justify-center"
+          style={{
+            background: isCanaryTheme
+              ? 'linear-gradient(135deg, #2e1065, #4c1d95)'
+              : 'linear-gradient(135deg, #0f172a, #1e3a8a)'
+          }}
+        >
           <div className="w-full max-w-5xl mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-white/10 pb-5">
             <div>
               <div className="flex items-center gap-2">
@@ -106,9 +147,9 @@
           </div>
 
           <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-6">
-            
+
             <div className="lg:col-span-7 space-y-5">
-              
+
               <div className="bg-slate-900/90 border border-white/10 rounded-2xl p-6 shadow-2xl backdrop-blur-xl">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -124,14 +165,14 @@
                   <p className="text-xs text-slate-400 mt-1">Supports images, PDFs, docs, videos up to 30MB</p>
 
                   <div className="mt-4 flex flex-col items-center gap-3">
-                    <input 
-                      id="file-picker" 
-                      type="file" 
+                    <input
+                      id="file-picker"
+                      type="file"
                       onChange={(e) => setFile(e.target.files[0])}
                       className="text-xs text-slate-300 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-700 file:text-white hover:file:bg-slate-600 cursor-pointer"
                     />
 
-                    <button 
+                    <button
                       onClick={handleUpload}
                       disabled={loading}
                       className="w-full py-2.5 rounded-xl font-bold text-xs text-white uppercase tracking-wider transition-all shadow-lg hover:brightness-110 flex items-center justify-center gap-2"
@@ -149,15 +190,15 @@
                       <span className="font-mono text-slate-300">{uploadedFile.name} ({uploadedFile.size})</span>
                     </div>
                     <div className="flex gap-2 mt-2">
-                      <input 
-                        type="text" 
-                        readOnly 
+                      <input
+                        type="text"
+                        readOnly
                         value={`${window.location.origin}${uploadedFile.previewUrl}`}
                         className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-200"
                       />
                       <button onClick={() => copyLink(`${window.location.origin}${uploadedFile.previewUrl}`)} className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs font-semibold text-white">Copy</button>
-                      <a 
-                        href={uploadedFile.previewUrl} 
+                      <a
+                        href={uploadedFile.previewUrl}
                         target="_blank"
                         className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-xs font-semibold text-white flex items-center gap-1"
                       >
@@ -191,7 +232,7 @@
             </div>
 
             <div className="lg:col-span-5 space-y-4">
-              
+
               <div className="bg-slate-900/90 border border-white/10 rounded-2xl p-5 shadow-2xl backdrop-blur-xl">
                 <div className="flex items-center justify-between mb-3">
                   <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
@@ -207,14 +248,14 @@
                     <span className="text-white font-bold">{v1Percent}%</span>
                   </div>
                   <div className="flex justify-between text-xs font-mono">
-                    <span className="text-emerald-400 font-semibold">🟢 Canary v2.0.0</span>
+                    <span className="text-purple-400 font-semibold">🟣 Canary v2.0.0</span>
                     <span className="text-white font-bold">{v2Percent}%</span>
                   </div>
                 </div>
 
                 <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden flex mt-3">
                   <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${v1Percent}%` }}></div>
-                  <div className="bg-emerald-500 h-full transition-all duration-500" style={{ width: `${v2Percent}%` }}></div>
+                  <div className="bg-purple-500 h-full transition-all duration-500" style={{ width: `${v2Percent}%` }}></div>
                 </div>
 
                 <div className="mt-3 flex gap-2">
@@ -245,7 +286,7 @@
 
                 <div className="flex justify-between">
                   <span className="text-slate-400">Progressive Strategy:</span>
-                  <span className="text-purple-400 font-bold">Canary (80% / 20%)</span>
+                  <span className="text-purple-400 font-bold">Canary: 20% → 50% → 100%</span>
                 </div>
 
                 <div className="flex justify-between">
@@ -340,10 +381,10 @@
             </div>
 
             <div className="mt-6 flex flex-col gap-3">
-              <a 
-                href={fileData.rawDownloadUrl} 
-                download={fileData.name} 
-                className="w-full py-3.5 rounded-xl font-bold text-sm text-white text-center shadow-lg transition-all hover:brightness-110 flex items-center justify-center gap-2" 
+              <a
+                href={fileData.rawDownloadUrl}
+                download={fileData.name}
+                className="w-full py-3.5 rounded-xl font-bold text-sm text-white text-center shadow-lg transition-all hover:brightness-110 flex items-center justify-center gap-2"
                 style={{ backgroundColor: theme.primary }}
               >
                 <span>📥</span>
@@ -367,5 +408,46 @@
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
   </script>
+  <style>
+    :root {
+      --release-accent: #2563eb;
+      --release-background: #eff6ff;
+    }
+
+    body {
+      background-color: var(--release-background) !important;
+      transition: background-color 0.4s ease;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 6px;
+      background: var(--release-accent);
+      z-index: 9999;
+    }
+
+    #release-theme-badge {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 9999;
+      padding: 12px 18px;
+      border-radius: 12px;
+      background: var(--release-accent);
+      color: white;
+      font: 600 14px Arial, sans-serif;
+      box-shadow: 0 4px 16px #0002;
+    }
+  </style>
+
+  <div id="release-theme-badge">
+    Checking release...
+  </div>
+
 </body>
+
 </html>

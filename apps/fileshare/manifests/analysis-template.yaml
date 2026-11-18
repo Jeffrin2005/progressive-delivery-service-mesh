@@ -1,3 +1,4 @@
+
 apiVersion: argoproj.io/v1alpha1
 kind: AnalysisTemplate
 metadata:
@@ -5,18 +6,69 @@ metadata:
   namespace: prod
 spec:
   args:
-  - name: service-version
+    - name: service-version
+
   metrics:
-  - name: success-rate
-    interval: 10s
-    successCondition: len(result) == 0 || result[0] <= 0.05
-    failureLimit: 1
-    provider:
-      prometheus:
-        address: http://prometheus-server.istio-system.svc.cluster.local:80
-        query: |
-          (
-            sum(rate(http_requests_total{status_code=~"5.*",app_version="{{args.service-version}}"}[1m]))
-            /
-            sum(rate(http_requests_total{app_version="{{args.service-version}}"}[1m]))
-          )
+    # Requires the 10s scrape interval in platform/prometheus/prometheus-values.yaml.
+    # Empty results fail closed; generate /checkout traffic throughout the rollout.
+    - name: checkout-error-rate
+      interval: 10s
+      initialDelay: 75s
+      count: 3
+      failureLimit: 0
+      successCondition: len(result) == 1 && result[0] <= 0.05
+      failureCondition: len(result) != 1 || result[0] > 0.05
+
+      provider:
+        prometheus:
+          address: http://prometheus-server.istio-system.svc.cluster.local:80
+          query: |
+            (
+              (
+                (
+                  sum(increase(http_requests_total{
+                    route="/checkout",
+                    status_code=~"5..",
+                    app_version="{{args.service-version}}"
+                  }[1m]))
+                  or vector(0)
+                )
+                /
+                clamp_min(
+                  sum(increase(http_requests_total{
+                    route="/checkout",
+                    app_version="{{args.service-version}}"
+                  }[1m])),
+                  1
+                )
+              )
+              and on()
+              (
+                sum(increase(http_requests_total{
+                  route="/checkout",
+                  app_version="{{args.service-version}}"
+                }[1m])) >= 10
+              )
+            )
+
+    - name: checkout-p95-latency
+      interval: 10s
+      initialDelay: 75s
+      count: 3
+      failureLimit: 0
+      successCondition: len(result) == 1 && result[0] <= 0.75
+      failureCondition: len(result) != 1 || result[0] > 0.75
+
+      provider:
+        prometheus:
+          address: http://prometheus-server.istio-system.svc.cluster.local:80
+          query: |
+            histogram_quantile(
+              0.95,
+              sum by (le) (
+                rate(http_request_duration_seconds_bucket{
+                  route="/checkout",
+                  app_version="{{args.service-version}}"
+                }[1m])
+              )
+            )

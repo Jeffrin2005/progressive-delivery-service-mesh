@@ -1,0 +1,209 @@
+{
+  "checkedAt": "2026-11-18T02:51:36.7209751Z",
+  "phase": "Healthy",
+  "stableRS": "558479bd56",
+  "currentPodHash": "558479bd56",
+  "image": "clouddrop-service:v2.0.0-live-demo",
+  "runs": [
+    {
+      "name": "clouddrop-no-data-check-7b9mh",
+      "status": {
+        "completedAt": "2026-11-18T02:44:12Z",
+        "dryRunSummary": {},
+        "message": "Metric \"checkout-error-rate\" assessed Failed due to failed (1) > failureLimit (0)",
+        "metricResults": [
+          {
+            "count": 1,
+            "failed": 1,
+            "measurements": [
+              {
+                "finishedAt": "2026-11-18T02:44:12Z",
+                "phase": "Failed",
+                "startedAt": "2026-11-18T02:44:11Z",
+                "value": "[]"
+              }
+            ],
+            "metadata": {
+              "ResolvedPrometheusQuery": "(\n  (\n    (\n      sum(increase(http_requests_total{\n        route=\"/checkout\",\n        status_code=~\"5..\",\n        app_version=\"no-such-clouddrop-version\"\n      }[1m]))\n      or vector(0)\n    )\n    /\n    clamp_min(\n      sum(increase(http_requests_total{\n        route=\"/checkout\",\n        app_version=\"no-such-clouddrop-version\"\n      }[1m])),\n      1\n    )\n  )\n  and on()\n  (\n    sum(increase(http_requests_total{\n      route=\"/checkout\",\n      app_version=\"no-such-clouddrop-version\"\n    }[1m])) >= 10\n  )\n)\n"
+            },
+            "name": "checkout-error-rate",
+            "phase": "Failed"
+          },
+          {
+            "count": 1,
+            "failed": 1,
+            "measurements": [
+              {
+                "finishedAt": "2026-11-18T02:44:12Z",
+                "phase": "Failed",
+                "startedAt": "2026-11-18T02:44:11Z",
+                "value": "[]"
+              }
+            ],
+            "metadata": {
+              "ResolvedPrometheusQuery": "histogram_quantile(\n  0.95,\n  sum by (le) (\n    rate(http_request_duration_seconds_bucket{\n      route=\"/checkout\",\n      app_version=\"no-such-clouddrop-version\"\n    }[1m])\n  )\n)\n"
+            },
+            "name": "checkout-p95-latency",
+            "phase": "Failed"
+          }
+        ],
+        "phase": "Failed",
+        "runSummary": {
+          "count": 2,
+          "failed": 2
+        },
+        "startedAt": "2026-11-18T02:44:11Z"
+      }
+    },
+    {
+      "name": "clouddrop-service-558479bd56-9-2",
+      "status": {
+        "completedAt": "2026-11-18T02:47:17Z",
+        "dryRunSummary": {},
+        "metricResults": [
+          {
+            "consecutiveSuccess": 3,
+            "count": 3,
+            "measurements": [
+              {
+                "finishedAt": "2026-11-18T02:46:57Z",
+                "phase": "Successful",
+                "startedAt": "2026-11-18T02:46:57Z",
+                "value": "[0]"
+              },
+              {
+                "finishedAt": "2026-11-18T02:47:07Z",
+                "phase": "Successful",
+                "startedAt": "2026-11-18T02:47:07Z",
+                "value": "[0]"
+              },
+              {
+                "finishedAt": "2026-11-18T02:47:17Z",
+                "phase": "Successful",
+                "startedAt": "2026-11-18T02:47:17Z",
+                "value": "[0]"
+              }
+            ],
+            "metadata": {
+              "ResolvedPrometheusQuery": "(\n  (\n    (\n      sum(increase(http_requests_total{\n        route=\"/checkout\",\n        status_code=~\"5..\",\n        app_version=\"v2.0.0-canary\"\n      }[1m]))\n      or vector(0)\n    )\n    /\n    clamp_min(\n      sum(increase(http_requests_total{\n        route=\"/checkout\",\n        app_version=\"v2.0.0-canary\"\n      }[1m])),\n      1\n    )\n  )\n  and on()\n  (\n    sum(increase(http_requests_total{\n      route=\"/checkout\",\n      app_version=\"v2.0.0-canary\"\n    }[1m])) >= 10\n  )\n)\n"
+            },
+            "name": "checkout-error-rate",
+            "phase": "Successful",
+            "successful": 3
+          },
+          {
+            "consecutiveSuccess": 3,
+            "count": 3,
+            "measurements": [
+              {
+                "finishedAt": "2026-11-18T02:46:57Z",
+                "phase": "Successful",
+                "startedAt": "2026-11-18T02:46:57Z",
+                "value": "[0.00946875]"
+              },
+              {
+                "finishedAt": "2026-11-18T02:47:07Z",
+                "phase": "Successful",
+                "startedAt": "2026-11-18T02:47:07Z",
+                "value": "[0.013000000000000001]"
+              },
+              {
+                "finishedAt": "2026-11-18T02:47:17Z",
+                "phase": "Successful",
+                "startedAt": "2026-11-18T02:47:17Z",
+                "value": "[0.016500000000000004]"
+              }
+            ],
+            "metadata": {
+              "ResolvedPrometheusQuery": "histogram_quantile(\n  0.95,\n  sum by (le) (\n    rate(http_request_duration_seconds_bucket{\n      route=\"/checkout\",\n      app_version=\"v2.0.0-canary\"\n    }[1m])\n  )\n)\n"
+            },
+            "name": "checkout-p95-latency",
+            "phase": "Successful",
+            "successful": 3
+          }
+        ],
+        "phase": "Successful",
+        "runSummary": {
+          "count": 2,
+          "successful": 2
+        },
+        "startedAt": "2026-11-18T02:45:42Z"
+      }
+    },
+    {
+      "name": "clouddrop-service-558479bd56-9-5",
+      "status": {
+        "completedAt": "2026-11-18T02:49:52Z",
+        "dryRunSummary": {},
+        "metricResults": [
+          {
+            "consecutiveSuccess": 3,
+            "count": 3,
+            "measurements": [
+              {
+                "finishedAt": "2026-11-18T02:49:32Z",
+                "phase": "Successful",
+                "startedAt": "2026-11-18T02:49:32Z",
+                "value": "[0.01975068061709281]"
+              },
+              {
+                "finishedAt": "2026-11-18T02:49:42Z",
+                "phase": "Successful",
+                "startedAt": "2026-11-18T02:49:42Z",
+                "value": "[0.01824838598282384]"
+              },
+              {
+                "finishedAt": "2026-11-18T02:49:52Z",
+                "phase": "Successful",
+                "startedAt": "2026-11-18T02:49:52Z",
+                "value": "[0.01825638818548505]"
+              }
+            ],
+            "metadata": {
+              "ResolvedPrometheusQuery": "histogram_quantile(\n  0.95,\n  sum by (le) (\n    rate(http_request_duration_seconds_bucket{\n      route=\"/checkout\",\n      app_version=\"v2.0.0-canary\"\n    }[1m])\n  )\n)\n"
+            },
+            "name": "checkout-p95-latency",
+            "phase": "Successful",
+            "successful": 3
+          },
+          {
+            "consecutiveSuccess": 3,
+            "count": 3,
+            "measurements": [
+              {
+                "finishedAt": "2026-11-18T02:49:32Z",
+                "phase": "Successful",
+                "startedAt": "2026-11-18T02:49:32Z",
+                "value": "[0]"
+              },
+              {
+                "finishedAt": "2026-11-18T02:49:42Z",
+                "phase": "Successful",
+                "startedAt": "2026-11-18T02:49:42Z",
+                "value": "[0]"
+              },
+              {
+                "finishedAt": "2026-11-18T02:49:52Z",
+                "phase": "Successful",
+                "startedAt": "2026-11-18T02:49:52Z",
+                "value": "[0]"
+              }
+            ],
+            "metadata": {
+              "ResolvedPrometheusQuery": "(\n  (\n    (\n      sum(increase(http_requests_total{\n        route=\"/checkout\",\n        status_code=~\"5..\",\n        app_version=\"v2.0.0-canary\"\n      }[1m]))\n      or vector(0)\n    )\n    /\n    clamp_min(\n      sum(increase(http_requests_total{\n        route=\"/checkout\",\n        app_version=\"v2.0.0-canary\"\n      }[1m])),\n      1\n    )\n  )\n  and on()\n  (\n    sum(increase(http_requests_total{\n      route=\"/checkout\",\n      app_version=\"v2.0.0-canary\"\n    }[1m])) >= 10\n  )\n)\n"
+            },
+            "name": "checkout-error-rate",
+            "phase": "Successful",
+            "successful": 3
+          }
+        ],
+        "phase": "Successful",
+        "runSummary": {
+          "count": 2,
+          "successful": 2
+        },
+        "startedAt": "2026-11-18T02:48:17Z"
+      }
+    }
+  ]
+}

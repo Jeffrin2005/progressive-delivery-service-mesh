@@ -1,55 +1,46 @@
-name: Build, Lint & Test Microservice
+
+name: CloudDrop Build and Test
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - 'apps/payment-service/**'
+      - "apps/fileshare/**"
+      - ".github/workflows/build-and-test.yaml"
+
   pull_request:
-    branches: [ main ]
-    paths:
-      - 'apps/payment-service/**'
+    branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
-  test:
-    name: Unit Test & Security Scan
+  test-and-build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Source Code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js Environment
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'npm'
-          cache-dependency-path: apps/payment-service/src/package.json
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/fileshare/backend/package-lock.json
 
-      - name: Install Dependencies
+      - name: Install dependencies
+        run: npm ci --prefix apps/fileshare/backend
+
+      - name: Run backend tests
+        run: npm test --prefix apps/fileshare/backend
+
+      - name: Security audit
+        run: npm audit --prefix apps/fileshare/backend --audit-level=high
+
+      - name: Build Docker image
         run: |
-          cd apps/payment-service/src
-          npm ci
-
-      - name: Run Vulnerability Audit
-        run: |
-          cd apps/payment-service/src
-          npm audit --audit-level=high
-
-  docker-build:
-    name: Build & Validate Container
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Source Code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build Container Image
-        uses: docker/build-push-action@v5
-        with:
-          context: apps/payment-service
-          file: apps/payment-service/Dockerfile
-          push: false
-          tags: payment-service:test
+          docker build \
+            -t clouddrop-service:ci \
+            -f apps/fileshare/Dockerfile \
+            apps/fileshare

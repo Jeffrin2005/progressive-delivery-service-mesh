@@ -1,5 +1,10 @@
 # Production Prometheus Helm values optimized for progressive delivery metrics
 server:
+  # A one-minute rate window needs several scrapes, including for new canary pods.
+  global:
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    evaluation_interval: 10s
   persistentVolume:
     enabled: false
   retention: "6h"

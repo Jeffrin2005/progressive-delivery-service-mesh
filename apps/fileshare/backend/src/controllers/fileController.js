@@ -6,7 +6,19 @@ if (!fs.existsSync(config.STORAGE_DIR)) {
   fs.mkdirSync(config.STORAGE_DIR, { recursive: true });
 }
 
-let errorRate = config.INITIAL_ERROR_PERCENTAGE;
+let errorRate = Number(config.INITIAL_ERROR_PERCENTAGE);
+
+if (!Number.isFinite(errorRate)) {
+  errorRate = 0;
+}
+
+errorRate = Math.max(0, Math.min(100, errorRate));
+
+function shouldFailRequest() {
+  return Math.random() * 100 < errorRate;
+}
+
+exports.shouldFailRequest = shouldFailRequest;
 
 function getErrorRate() { return errorRate; }
 function setErrorRate(rate) { errorRate = rate; }
@@ -32,8 +44,16 @@ function findFileById(fileId) {
 }
 
 exports.uploadFile = (req, res) => {
-  const roll = Math.random() * 100;
-  if (roll < errorRate) {
+  if (shouldFailRequest()) {
+    // Multer already saved the uploaded file.
+    // Remove it before returning the simulated failure.
+    if (req.file && req.file.path) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (err) {
+        console.error('Failed to clean up upload:', err);
+      }
+    }
     return res.status(500).json({
       status: 'FAILED',
       error: 'STORAGE_UPLOAD_TIMEOUT',
@@ -71,7 +91,7 @@ exports.downloadRaw = (req, res) => {
 exports.getFileDetails = (req, res) => {
   const file = findFileById(req.params.fileId);
   if (!file) return res.status(404).json({ error: 'File not found' });
-  
+
   const ext = path.extname(file.originalName).toLowerCase();
   const isImage = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'].includes(ext);
 

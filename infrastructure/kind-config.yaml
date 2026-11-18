@@ -14,5 +14,5 @@ nodes:
     protocol: TCP
   # Map host port 8080 to container port 30081 (Alternative / Dev test port)
   - containerPort: 30081
-    hostPort: 8080
+    hostPort: 8082
     protocol: TCP

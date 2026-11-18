@@ -5,18 +5,18 @@ const IS_CANARY = APP_VERSION.includes('v2') || APP_VERSION.includes('canary');
 
 const THEME = IS_CANARY ? {
   versionBadge: 'v2.0.0 (CANARY)',
-  colorName: 'Emerald Green',
-  primary: '#10b981',
-  primaryHover: '#059669',
-  border: '#059669',
-  trafficShare: '20% CANARY'
+  colorName: 'Royal Purple',
+  primary: '#7c3aed',
+  primaryHover: '#6d28d9',
+  border: '#6d28d9',
+  trafficShare: 'v2 RELEASE'
 } : {
   versionBadge: 'v1.0.0 (STABLE)',
   colorName: 'Ocean Blue',
   primary: '#3b82f6',
   primaryHover: '#2563eb',
   border: '#2563eb',
-  trafficShare: '80% STABLE'
+  trafficShare: 'v1 RELEASE'
 };
 
 module.exports = {

@@ -1,22 +1,22 @@
-FROM node:20-alpine
 
-WORKDIR /app
+FROM node:24-alpine
 
-# Copy backend dependencies
-COPY backend/package.json ./backend/
+ENV NODE_ENV=production
 
-# Install production dependencies
-RUN cd backend && npm install --only=production
-
-# Copy backend source code & frontend dist build
-COPY backend/ ./backend/
-COPY frontend/ ./frontend/
-
-# Set working directory to backend
 WORKDIR /app/backend
 
-EXPOSE 8080
+COPY backend/package.json backend/package-lock.json ./
+
+RUN npm ci --omit=dev && npm cache clean --force
+
+COPY backend/src ./src
+COPY frontend/dist /app/frontend/dist
+
+RUN mkdir -p /tmp/shared-files && \
+    chown -R node:node /tmp/shared-files
 
 USER node
+
+EXPOSE 8080
 
 CMD ["node", "src/server.js"]
