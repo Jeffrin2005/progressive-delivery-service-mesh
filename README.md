@@ -1,13 +1,15 @@
-# 🛡️ Enterprise Progressive Delivery & Service Mesh Platform
+# CloudDrop — Progressive Delivery & Service Mesh
 
-> **Zero-Downtime Canary Deployments & SLO-Based Automated Rollbacks with Istio, Argo Rollouts, and Prometheus.**
+> A file-sharing application demonstrating canary deployments, SLO analysis, and automated rollback with Kubernetes, Istio, Argo Rollouts, and Prometheus.
 
 ---
 
 ## 🌟 Overview
-In enterprise architectures (fintech, e-commerce, banking), standard Kubernetes `RollingUpdate` deployments are dangerous: a subtle bug can pass basic readiness checks and replace 100% of healthy pods, causing a full production outage.
+CloudDrop lets users upload files, share preview links, and download stored
+files. The project demonstrates how to release application updates gradually
+while checking real request metrics before sending more traffic to a candidate.
 
-This repository demonstrates an **end-to-end Progressive Delivery & SRE solution**:
+The local platform runs in Docker Desktop and a single-node Kind cluster:
 * **Layer 7 Traffic Splitting:** Dynamic canary routing (20% ➔ 50% ➔ 100%) via **Istio Envoy proxies**.
 * **Automated SLO Analysis:** Real-time **Prometheus PromQL queries** evaluating HTTP 5xx error rates and latency before advancing traffic.
 * **Analysis-Based Rollback:** Failed canary analysis returns traffic to the last healthy release. Timing follows the configured measurement schedule and controller reconciliation.
@@ -28,40 +30,115 @@ image publishing from the script-driven local deployment path.
 
 ---
 
-## 🏗️ Repository Architecture
+## 🏗️ Project Structure
 
 ```text
-Progressive Delivery devops2/
-├── .github/workflows/             # GitHub Actions CI/CD (Test, Lint & Canary Release)
-├── apps/
-│   └── fileshare/                 # CloudDrop File Sharing Microservice
-│       ├── backend/               # Node.js Express API with /metrics & shared volume
-│       ├── frontend/              # React 18 Telemetry Dashboard & Upload UI
-│       ├── Dockerfile             # Node.js container with bundled frontend
-│       └── manifests/             # Kubernetes Rollout, VirtualService, Services & mTLS
-├── infrastructure/                # Local Kind cluster configuration
-├── platform/                      # Core Mesh & Observability (Istio, Prometheus, Argo Rollouts)
-├── scripts/                       # Chaos Engineering & Traffic Simulation Scripts
-└── docs/                          # Architecture Diagrams & Documentation
+progressive-delivery-service-mesh/
+├── .github/workflows/
+│   ├── build-and-test.yaml        # Backend tests, dependency audit, Docker build
+│   └── release.yaml               # Tests and publishes an image to GHCR on version tags
+├── apps/fileshare/                # CloudDrop application
+│   ├── backend/
+│   │   ├── src/
+│   │   │   ├── server.js          # Express startup, frontend serving, request telemetry
+│   │   │   ├── config/            # Version, theme, port, and storage settings
+│   │   │   ├── controllers/       # File operations and simulated request failures
+│   │   │   ├── routes/            # API endpoints, health, metrics, and checkout traffic
+│   │   │   └── metrics/           # Prometheus counters and duration histograms
+│   │   ├── tests/                 # Health, checkout, failure, metrics, and upload tests
+│   │   ├── package.json           # Dependencies and application commands
+│   │   └── package-lock.json      # Locked dependency versions for reproducible installs
+│   ├── frontend/
+│   │   ├── src/                   # React components for uploads, previews, traffic display
+│   │   └── dist/                  # Browser page currently bundled into the Docker image
+│   ├── Dockerfile                 # Packages the backend and frontend in one Node.js image
+│   ├── .dockerignore              # Excludes local dependencies and unnecessary build files
+│   └── manifests/
+│       ├── rollout.yaml           # Replicas and 20% → 50% → 100% canary steps
+│       ├── analysis-template.yaml # Prometheus error-rate and p95 latency checks
+│       ├── services.yaml          # Stable and canary Kubernetes Services
+│       ├── istio-networking.yaml  # Gateway and weighted VirtualService routing
+│       ├── destinationrule.yaml   # Service connection policies, including mTLS
+│       └── pvc.yaml               # Shared persistent storage claim for uploaded files
+├── infrastructure/
+│   └── kind-config.yaml           # Local cluster definition and host-port mappings
+├── platform/
+│   ├── istio/                     # Istio installation and ingress configuration
+│   ├── prometheus/                # Monitoring settings, including 10-second scraping
+│   └── argo-rollouts/             # Supporting dashboard service configuration
+├── scripts/
+│   ├── setup.ps1                  # Configures the cluster, platform, images, and application
+│   ├── promote-v2.ps1             # Submits v2, generates traffic, and watches the rollout
+│   ├── generate-traffic.ps1       # Sends synthetic requests to /checkout
+│   └── trigger-chaos.ps1          # Submits a canary with simulated application failures
+├── docs/
+│   ├── architecture.md            # Application, monitoring, and delivery flow explanations
+│   ├── images/                    # Architecture diagram and generation prompt
+│   └── evidence/                  # Demo screenshots and recorded analysis results
+├── .gitignore                     # Excludes dependencies and local runtime files
+└── README.md                      # Overview, setup instructions, and demonstrations
 ```
+
+**Application flow:** the browser reaches Istio, which routes requests to a
+stable or canary pod. CloudDrop handles the API request and accesses uploaded
+files through the shared PVC.
+
+**Deployment flow:** the local scripts submit a candidate release. Argo changes
+traffic weights, queries Prometheus, and either promotes the candidate or returns
+traffic to the last healthy release.
+
+GitHub Actions publishes release images but does not deploy them automatically
+to the local cluster. The Dockerfile copies `frontend/dist` directly; the current
+pipeline does not compile `frontend/src` into that page.
 
 ---
 
-## 🚀 Quickstart (Run Locally in 5 Minutes)
+## 🚀 Quickstart
 
 ### Prerequisites
-* Docker Desktop (running)
-* `kind`, `kubectl`, and `helm` installed
+* Windows with PowerShell and Git
+* Docker Desktop running with Linux containers
+* `kind`, `kubectl`, and `helm` available on your PATH
+* Internet access for container images, Helm charts, and the frontend CDN assets
+* Node.js 24 if you want to run backend tests outside Docker
 
-### 1. One-Click Automated Setup
+### 1. Clone and set up the local platform
+
 ```powershell
+git clone https://github.com/Jeffrin2005/progressive-delivery-service-mesh.git
+cd progressive-delivery-service-mesh
 .\scripts\setup.ps1
 ```
 
-### 2. Access the Application
+Setup creates the cluster, installs the platform components, builds and loads
+application images, and applies the manifests. Initial downloads and image
+imports can take several minutes, depending on your connection and computer.
+
+If you already have the repository, run the script from its root directory.
+
+### 2. Verify readiness and open the application
+
+```powershell
+kubectl config use-context kind-progressive-delivery
+kubectl wait --for=condition=Ready nodes --all --timeout=180s
+kubectl wait --for=condition=Healthy rollout/clouddrop-service -n prod --timeout=300s
+kubectl get pods -n prod
+curl.exe http://localhost:8082/health
+```
+
+The node should be `Ready`, the application pods should report `2/2 Running`,
+and the health endpoint should return `HEALTHY` with the application version.
+
 * **Web Portal:** Open `http://localhost:8082/` in your browser.
 * **Health Check:** `http://localhost:8082/health`
 * **Metrics:** `http://localhost:8082/metrics`
+
+### 3. Run backend tests (optional)
+
+```powershell
+npm ci --prefix apps/fileshare/backend
+npm test --prefix apps/fileshare/backend
+```
 
 ---
 
