@@ -1,0 +1,42 @@
+Use case: infographic-diagram. Create one complete, highly readable, professional system architecture diagram for CloudDrop, a real local DevOps project. Landscape 16:9 high resolution. Title "CloudDrop — Complete System Architecture". White background, navy type and thin lines, blue v1, purple v2, teal observability, amber control. Clean flat technical design, ample whitespace. Use four clearly separated numbered panels. Avoid complicated connectors between panels: relationships between panels should be stated explicitly in captions instead. This avoids ambiguous arrows. Only draw the simple, explicitly listed arrows INSIDE each panel. Do not add unrequested connectors, services or labels.
+
+PANEL 1, full-width top strip, "1  SOURCE & DELIVERY".
+Row A: "Developer → GitHub repository → GitHub Actions". Under Actions show two outputs in clear text: "Main: install • test • audit • Docker build" and "Version tag: test • build • publish → GitHub Container Registry".
+Row B local path, separate from GHCR: "PowerShell scripts → Docker build → kind load docker-image → Kubernetes API / Rollout".
+Caption: "Registry publishing and local deployment are separate. No automatic GHCR-to-Kind deployment."
+
+PANEL 2, large left middle block, "2  APPLICATION & FILE TRAFFIC".
+Boundary caption "Docker Desktop / Kind: progressive-delivery / single node".
+Simple runtime graph within panel:
+"Browser / traffic generator" → "localhost:8082" → "Istio Ingress Gateway (Envoy)" → "Gateway + VirtualService (primary route)".
+One clear split from VirtualService to two side-by-side service-and-workload columns, with enough vertical space:
+BLUE: "Stable Service" smaller "clouddrop-service-stable" → down arrow "mTLS" → "v1 ReplicaSet" with "Express API + React UI" and "Envoy sidecar • port 8080".
+PURPLE: "Canary Service" smaller "clouddrop-service-canary" → down arrow "mTLS" → "v2 ReplicaSet" with same "Express API + React UI" and "Envoy sidecar • port 8080".
+Both app workload boxes have separate down-pointing arrows labeled "Read / write files" leading to ONE shared filesystem folder card "PVC: clouddrop-files" / "2 GiB • ReadWriteOnce • node-local volume" / "All pods mount /tmp/shared-files".
+Place small clear captions: "Ingress: istio-system | Services, Rollout, pods, PVC: prod"; "host 8082 → NodePort 30081 → HTTP 80"; "4 desired app replicas; temporary extra pods during rollout".
+IMPORTANT this panel has NO teal telemetry arrows and NO amber control arrows. Only navy application/file arrows inside this panel. Storage is a filesystem volume, not a database. Do not place mTLS labels on file arrows.
+
+PANEL 3, tall right middle block, "3  OBSERVABILITY & RELEASE CONTROL".
+Use simple stacked cards and explicit text, not outgoing wires across panels.
+Teal card "Prometheus • istio-system" / "Scrapes /metrics from BOTH v1 and v2 every 10 s" / "1-minute metric windows".
+Below it, amber card "Argo Rollouts Controller • argo-rollouts" / "Queries Prometheus using AnalysisRuns" / "Uses clouddrop-success-rate AnalysisTemplate".
+ONLY connector here: a short two-headed teal arrow between Prometheus and Argo labeled "PromQL query / result".
+Below these two cards put an unconnected criteria card "Canary checks" with bullets exactly:
+"HTTP 5xx ≤ 5%"
+"p95 latency ≤ 750 ms"
+"≥ 10 observed checkout requests"
+"75 s warm-up; 3 checks, 10 s apart"
+"Empty results fail"
+Then two explicit responsibility captions:
+"Argo controls: VirtualService weights, service selectors, ReplicaSets."
+"Istiod (istio-system): configures ingress and pod Envoys; supplies workload certificates."
+No Istiod or Argo connector can point to the wrong object; use these text captions and no cross-panel control wires.
+
+PANEL 4, full-width bottom strip, "4  RELEASE LIFECYCLE".
+Large exact sequence "v1/v2: 100/0 → 80/20 → Analysis → 50/50 → Analysis → 0/100".
+Outcome cards "PASS: v2 becomes stable" (green) and "FAIL during analysis: return to last healthy release" (red).
+Small exact note "Step-based analysis runs during deployment, not continuously after promotion."
+Small endpoint footer "/health: probes   /metrics: telemetry   /checkout: analysis traffic   /api/ping: live counter, 500 ms".
+
+Polish: all text spelled correctly, no cropping, high legibility. Complete implementation coverage is more important than adding arrows. No telemetry arrow between v1 and v2, no storage-to-Prometheus arrow, no GHCR deployment arrow, no false claim of strict inbound mTLS enforcement, no rollback timing guarantee, no AWS/EKS/S3/Grafana/Argo CD/database. The two namespace controller cards plus explicit controls captions provide the full control-plane architecture without crossed wires. Make it attractive and review-ready for a GitHub README.
+Panel 3's controllers and Prometheus run in the SAME Kind cluster as panel 2; include the subtitle 'Same Kind cluster • control and telemetry view'. Panel boundaries organize the views, not separate computers.

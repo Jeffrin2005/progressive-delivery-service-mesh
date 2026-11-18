@@ -8,16 +8,23 @@
 In enterprise architectures (fintech, e-commerce, banking), standard Kubernetes `RollingUpdate` deployments are dangerous: a subtle bug can pass basic readiness checks and replace 100% of healthy pods, causing a full production outage.
 
 This repository demonstrates an **end-to-end Progressive Delivery & SRE solution**:
-* **Layer 7 Traffic Splitting:** Dynamic percentage-based routing (10% ➔ 30% ➔ 60% ➔ 100%) via **Istio Envoy proxies**.
+* **Layer 7 Traffic Splitting:** Dynamic canary routing (20% ➔ 50% ➔ 100%) via **Istio Envoy proxies**.
 * **Automated SLO Analysis:** Real-time **Prometheus PromQL queries** evaluating HTTP 5xx error rates and latency before advancing traffic.
-* **Instant Automated Rollback:** Automated rollbacks in `<15 seconds` without human intervention if error thresholds breach SLO limits.
-* **Zero-Trust Security:** Automatic **mTLS encryption** between microservice pods using Istio `DestinationRules`.
+* **Analysis-Based Rollback:** Failed canary analysis returns traffic to the last healthy release. Timing follows the configured measurement schedule and controller reconciliation.
+* **Service Mesh mTLS:** Istio `DestinationRules` configure **ISTIO_MUTUAL** for stable and canary service connections.
 
 ---
 
 ## 📐 System Architecture
 
-![CloudDrop Progressive Canary Delivery & Service Mesh Architecture](docs/images/architecture.png)
+![CloudDrop system architecture: delivery, traffic, storage, monitoring and rollout control](docs/images/architecture.png)
+
+The diagram follows the implemented local system: Docker Desktop and Kind,
+Istio ingress on `localhost:8082`, blue/purple application releases, shared PVC
+storage, and the Prometheus/Argo analysis loop. It also separates GitHub Actions
+image publishing from the script-driven local deployment path.
+
+[Read the full architecture and release flow](docs/architecture.md).
 
 ---
 
@@ -30,9 +37,9 @@ Progressive Delivery devops2/
 │   └── fileshare/                 # CloudDrop File Sharing Microservice
 │       ├── backend/               # Node.js Express API with /metrics & shared volume
 │       ├── frontend/              # React 18 Telemetry Dashboard & Upload UI
-│       ├── Dockerfile             # Multi-stage container build
+│       ├── Dockerfile             # Node.js container with bundled frontend
 │       └── manifests/             # Kubernetes Rollout, VirtualService, Services & mTLS
-├── infrastructure/                # Local & Cloud Cluster Configurations (Kind / EKS)
+├── infrastructure/                # Local Kind cluster configuration
 ├── platform/                      # Core Mesh & Observability (Istio, Prometheus, Argo Rollouts)
 ├── scripts/                       # Chaos Engineering & Traffic Simulation Scripts
 └── docs/                          # Architecture Diagrams & Documentation
